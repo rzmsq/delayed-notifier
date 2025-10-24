@@ -2,7 +2,9 @@ APP=delayed-norifier
 APP_EXECUTABLE="./out/$(APP)"
 
 run:
-	docker-compose up --build
+	docker-compose down -v
+	docker-compose build --no-cache
+	docker-compose up
 
 quality:
 	make lint

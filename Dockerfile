@@ -1,14 +1,33 @@
-FROM golang:latest
+# Builder stage
+FROM golang:latest AS builder
 
-WORKDIR /delayed-notifier
+WORKDIR /app
 
+# Copy dependency files and download modules
 COPY go.mod go.sum ./
 RUN go mod download
 
-COPY ./ ./
+# Copy the rest of the source code
+COPY . .
 
-RUN CGO_ENABLED=0 GOOS=linux go build -o /delayed-notifier/server ./cmd/server
+# Build the server and sender binaries
+RUN CGO_ENABLED=0 GOOS=linux go build -o /app/server ./cmd/server/
+RUN CGO_ENABLED=0 GOOS=linux go build -o /app/sender ./cmd/sender/
 
-EXPOSE 8000
+# Final stage
+FROM alpine:3.20
 
-CMD ["/delayed-notifier/server"]
+# Install certificates for HTTPS requests
+RUN apk --no-cache add ca-certificates
+
+WORKDIR /app
+
+# Copy the configuration file from the source context
+COPY ./config.yaml .
+
+# Copy the compiled binaries from the builder stage
+COPY --from=builder /app/server .
+COPY --from=builder /app/sender .
+
+# Set the command to run the server
+CMD ["/app/server"]

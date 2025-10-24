@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"delayed-notifier/internal/handler/notifier"
+	"delayed-notifier/internal/handler"
 	"errors"
 	"flag"
 	"fmt"
@@ -45,9 +45,9 @@ func run(config Config) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	mux.HandleFunc("POST /notify", notifier.CreateNotify)
-	mux.HandleFunc("GET /notify/{id}", notifier.GetNotify)
-	mux.HandleFunc("DELETE /notify/{id}", notifier.DeleteNotify)
+	mux.HandleFunc("POST /notify", handler.CreateNotify)
+	mux.HandleFunc("GET /notify/{id}", handler.GetNotify)
+	mux.HandleFunc("DELETE /notify/{id}", handler.DeleteNotify)
 
 	server := http.Server{
 		Addr:         ":" + config.Port,

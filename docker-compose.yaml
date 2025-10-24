@@ -1,12 +1,32 @@
 services:
   server:
     image: server
-    build:
-      context: ./
+    build: .
+    command: /app/server
+    environment:
+      RABBITMQ_URL: "amqp://guest:guest@rabbitmq:5672/"
     ports:
-      - "8080:8080"
+      - "1337:1337"
+    depends_on:
+      - rabbitmq
+    restart: always
+
+  client:
+    image: client
+    build: .
+    command: /app/sender
+    environment:
+      RABBITMQ_URL: "amqp://guest:guest@rabbitmq:5672/"
+    ports:
+      - "8081:8081"
+    depends_on:
+      - rabbitmq
+    restart: always
+
   rabbitmq:
     image: rabbitmq:management
     container_name: rabbitmq
     ports:
       - "5672:5672"
+      - "15672:15672"
+    restart: always
