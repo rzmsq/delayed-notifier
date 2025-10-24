@@ -28,4 +28,5 @@ clean:
 tools:
 	go get github.com/rabbitmq/amqp091-go
 	go get github.com/ilyakaznacheev/cleanenv
+	go get golang.org/x/sync/errgroup
 	go mod tidy
