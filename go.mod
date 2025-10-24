@@ -4,6 +4,7 @@ go 1.25
 
 require (
 	github.com/ilyakaznacheev/cleanenv v1.5.0
+	github.com/rabbitmq/amqp091-go v1.10.0
 	golang.org/x/sync v0.17.0
 )
 

@@ -1,0 +1,24 @@
+version: 'latest'
+
+services:
+  server:
+    image: server
+    build:
+      context: ./
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+  rabbitmq:
+    image: rabbitmq:management
+    container_name: rabbitmq
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASSWORD}
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: [ "CMD-SHELL", "rabbitmq_isready -U $${RABBITMQ_USER} -d $${RABBITMQ_PASSWORD}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5

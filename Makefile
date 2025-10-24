@@ -2,9 +2,7 @@ APP=delayed-norifier
 APP_EXECUTABLE="./out/$(APP)"
 
 run:
-	make build
-	chmod +x $(APP_EXECUTABLE)
-	$(APP_EXECUTABLE)
+	docker-compose up --build
 
 quality:
 	make lint
