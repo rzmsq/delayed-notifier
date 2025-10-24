@@ -2,3 +2,4 @@
 out/
 *.out
 *.json
+/cmd/client

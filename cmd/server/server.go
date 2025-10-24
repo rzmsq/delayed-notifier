@@ -69,7 +69,7 @@ func run(config Config) error {
 	})
 
 	group.Go(func() error {
-		slog.Info("Server starting on port " + config.Port)
+		slog.Info("Server starting on port " + server.Addr)
 		err := server.ListenAndServe()
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			return fmt.Errorf("serrver faild: %v", err)
