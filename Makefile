@@ -1,30 +1,31 @@
 APP=delayed-norifier
 APP_EXECUTABLE="./out/$(APP)"
 
-make run:
+run:
 	make build
 	chmod +x $(APP_EXECUTABLE)
 	$(APP_EXECUTABLE)
 
-make quality:
+quality:
 	make lint
 	make fmt
 	make vet
 
-make lint:
+lint:
 	golangci-lint run --enable-all
 
-make test:
+test:
 	make tidy
 	make vendor
 	go test -v -timeout 10m ./test/ -coverprofile=coverage.out -json > report.json
 	@echo "test done"
 
-make clean:
+clean:
 	go clean
 	rm -rf out/
 	rm -f coverage*.out
 
-make tools:
+tools:
 	go get github.com/rabbitmq/amqp091-go
 	go get github.com/ilyakaznacheev/cleanenv
+	go mod tidy
