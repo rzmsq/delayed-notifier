@@ -10,9 +10,10 @@ RUN go mod download
 # Copy the rest of the source code
 COPY . .
 
-# Build the server and sender binaries
+# Build the server and consumer binaries
 RUN CGO_ENABLED=0 GOOS=linux go build -o /app/server ./cmd/server/
-RUN CGO_ENABLED=0 GOOS=linux go build -o /app/sender ./cmd/sender/
+RUN CGO_ENABLED=0 GOOS=linux go build -o /app/email_consumer ./cmd/consumer/email
+RUN CGO_ENABLED=0 GOOS=linux go build -o /app/telegram_consumer ./cmd/consumer/telegram
 
 # Final stage
 FROM alpine:3.20
@@ -27,7 +28,8 @@ COPY ./config.yaml .
 
 # Copy the compiled binaries from the builder stage
 COPY --from=builder /app/server .
-COPY --from=builder /app/sender .
+COPY --from=builder /app/email_consumer .
+COPY --from=builder /app/telegram_consumer .
 
 # Set the command to run the server
 CMD ["/app/server"]

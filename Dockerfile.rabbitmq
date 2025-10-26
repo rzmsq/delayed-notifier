@@ -1,0 +1,12 @@
+# Dockerfile.rabbitmq
+FROM rabbitmq:3-management-alpine
+
+# Install curl
+RUN apk add --no-cache curl
+
+# Download the delayed message exchange plugin compatible with RabbitMQ 3.13.x
+RUN curl -L https://github.com/rabbitmq/rabbitmq-delayed-message-exchange/releases/download/v3.13.0/rabbitmq_delayed_message_exchange-3.13.0.ez \
+    -o /plugins/rabbitmq_delayed_message_exchange-3.13.0.ez
+
+# Enable the plugin
+RUN rabbitmq-plugins enable rabbitmq_delayed_message_exchange

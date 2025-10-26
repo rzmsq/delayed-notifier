@@ -1,22 +1,16 @@
 package handler
 
 import (
-	"context"
-	"io"
+	"delayed-notifier/internal/models"
+	"delayed-notifier/internal/service"
+	"encoding/json"
 	"log/slog"
 	"net/http"
-	"os"
-	"time"
 
-	amqp "github.com/rabbitmq/amqp091-go"
+	"github.com/go-playground/validator/v10"
 )
 
-var (
-	rabbitmqUrl = os.Getenv("RABBITMQ_URL")
-	queueName   = "message_queue"
-)
-
-func CreateNotify(w http.ResponseWriter, r *http.Request) {
+func PostNotification(w http.ResponseWriter, r *http.Request) {
 	defer func() {
 		err := r.Body.Close()
 		if err != nil {
@@ -24,71 +18,32 @@ func CreateNotify(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	conn, err := amqp.Dial(rabbitmqUrl)
-	if isError(w, err, http.StatusInternalServerError) {
+	var request models.CreateNotificationRequest
+
+	err := json.NewDecoder(r.Body).Decode(&request)
+	if err != nil {
+		slog.Error("json decode error: ", err)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	ch, err := conn.Channel()
-	if isError(w, err, http.StatusInternalServerError) {
-		return
-	}
-	defer func() {
-		err = ch.Close()
-		if err != nil {
-			panic(err)
-		}
-	}()
-
-	q, err := ch.QueueDeclare(
-		queueName,
-		true,
-		false,
-		false,
-		false,
-		nil,
-	)
-	if isError(w, err, http.StatusInternalServerError) {
+	err = validator.New().Struct(request)
+	if err != nil {
+		slog.Error("validate error: ", err)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	body, err := io.ReadAll(r.Body)
-	if isError(w, err, http.StatusBadRequest) {
+	err = service.CreateNotification(&request)
+	if err != nil {
+		slog.Error("create notification error: ", err)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	err = ch.PublishWithContext(
-		ctx,
-		"",
-		q.Name,
-		false,
-		false,
-		amqp.Publishing{
-			DeliveryMode: amqp.Persistent,
-			ContentType:  "application/json",
-			Body:         body,
-		},
-	)
-	if isError(w, err, http.StatusInternalServerError) {
-		return
-	}
-
-	slog.Info("Sent", body)
-	w.WriteHeader(http.StatusOK)
+	w.WriteHeader(http.StatusCreated)
 }
 
 func GetNotify(w http.ResponseWriter, r *http.Request) {}
 
 func DeleteNotify(w http.ResponseWriter, r *http.Request) {}
-
-func isError(w http.ResponseWriter, err error, code int) bool {
-	if err != nil {
-		slog.Error("error", err)
-		w.WriteHeader(code)
-		return true
-	}
-	return false
-}

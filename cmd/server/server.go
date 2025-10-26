@@ -45,7 +45,7 @@ func run(config Config) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	mux.HandleFunc("POST /notify", handler.CreateNotify)
+	mux.HandleFunc("POST /notify", handler.PostNotification)
 	mux.HandleFunc("GET /notify/{id}", handler.GetNotify)
 	mux.HandleFunc("DELETE /notify/{id}", handler.DeleteNotify)
 

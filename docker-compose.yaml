@@ -11,10 +11,10 @@ services:
       - rabbitmq
     restart: always
 
-  client:
-    image: client
+  client_tg:
+    image: client_tg
     build: .
-    command: /app/sender
+    command: /app/telegram_consumer
     environment:
       RABBITMQ_URL: "amqp://guest:guest@rabbitmq:5672/"
     ports:
@@ -23,8 +23,22 @@ services:
       - rabbitmq
     restart: always
 
+  client_email:
+    image: client_email
+    build: .
+    command: /app/email_consumer
+    environment:
+      RABBITMQ_URL: "amqp://guest:guest@rabbitmq:5672/"
+    ports:
+      - "8082:8082"
+    depends_on:
+      - rabbitmq
+    restart: always
+
   rabbitmq:
-    image: rabbitmq:management
+    build:
+      context: .
+      dockerfile: Dockerfile.rabbitmq
     container_name: rabbitmq
     ports:
       - "5672:5672"
