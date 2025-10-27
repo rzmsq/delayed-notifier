@@ -4,17 +4,22 @@ import (
 	"delayed-notifier/internal/models"
 	"delayed-notifier/internal/service"
 	"encoding/json"
-	"log/slog"
 	"net/http"
 
 	"github.com/go-playground/validator/v10"
+	"github.com/wb-go/wbf/rabbitmq"
+	"github.com/wb-go/wbf/zlog"
 )
 
-func PostNotification(w http.ResponseWriter, r *http.Request) {
+type APIHandler struct {
+	Connection *rabbitmq.Connection
+}
+
+func (h *APIHandler) PostNotification(w http.ResponseWriter, r *http.Request) {
 	defer func() {
 		err := r.Body.Close()
 		if err != nil {
-			slog.Error("body request close error: ", err)
+			zlog.Logger.Error().Err(err).Msg("body request close error")
 		}
 	}()
 
@@ -22,21 +27,21 @@ func PostNotification(w http.ResponseWriter, r *http.Request) {
 
 	err := json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
-		slog.Error("json decode error: ", err)
+		zlog.Logger.Error().Err(err).Msg("json decode error")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	err = validator.New().Struct(request)
 	if err != nil {
-		slog.Error("validate error: ", err)
+		zlog.Logger.Error().Err(err).Msg("validate error")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	err = service.CreateNotification(&request)
+	err = service.CreateNotification(&request, h.Connection)
 	if err != nil {
-		slog.Error("create notification error: ", err)
+		zlog.Logger.Error().Err(err).Msg("create notification error")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -44,6 +49,6 @@ func PostNotification(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 }
 
-func GetNotify(w http.ResponseWriter, r *http.Request) {}
+func (h *APIHandler) GetNotify(w http.ResponseWriter, r *http.Request) {}
 
-func DeleteNotify(w http.ResponseWriter, r *http.Request) {}
+func (h *APIHandler) DeleteNotify(w http.ResponseWriter, r *http.Request) {}

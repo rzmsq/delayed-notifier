@@ -2,55 +2,64 @@ package main
 
 import (
 	"context"
+	"delayed-notifier/internal/appConfig"
 	"delayed-notifier/internal/handler"
 	"errors"
 	"flag"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
-	"github.com/ilyakaznacheev/cleanenv"
+	"github.com/wb-go/wbf/rabbitmq"
+	"github.com/wb-go/wbf/zlog"
 	"golang.org/x/sync/errgroup"
 )
 
 const yamlPath = "config.yaml"
 
-type Config struct {
-	Port string `yaml:"port" env:"DELAYED_NOTIFIER_PORT" envDefault:"8080"`
-}
-
 func main() {
+	zlog.InitConsole()
+
 	var configPath string
-	flag.StringVar(&configPath, "config", yamlPath, "Path to config file")
+	flag.StringVar(&configPath, "config", yamlPath, "Path to appConfig file")
 	flag.Parse()
 
-	var config Config
-	err := cleanenv.ReadConfig(configPath, &config)
+	err := appConfig.InitConfigs(configPath)
 	if err != nil {
-		panic(err)
+		zlog.Logger.Error().Err(err).Msg("Error loading appConfig file")
+		os.Exit(1)
 	}
 
-	if err = run(config); err != nil {
-		slog.Error(err.Error())
+	if err = run(); err != nil {
+		zlog.Logger.Error().Err(err).Msg("Error running server")
 		os.Exit(1)
 	}
 }
 
-func run(config Config) error {
+func run() error {
+	cfg := appConfig.Cfg
+
+	conn, err := rabbitmq.Connect(cfg.RabbitConfig.RabbitmqUrl, cfg.RabbitConfig.RetryConnect, cfg.RabbitConfig.PauseRetry)
+	if err != nil {
+		return err
+	}
+
 	mux := http.NewServeMux()
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	mux.HandleFunc("POST /notify", handler.PostNotification)
-	mux.HandleFunc("GET /notify/{id}", handler.GetNotify)
-	mux.HandleFunc("DELETE /notify/{id}", handler.DeleteNotify)
+	apiHandler := handler.APIHandler{Connection: conn}
+	zlog.Logger.Info().Msgf("Starting API server %v", apiHandler.Connection)
+
+	mux.HandleFunc("POST /notify", apiHandler.PostNotification)
+	mux.HandleFunc("GET /notify/{id}", apiHandler.GetNotify)
+	mux.HandleFunc("DELETE /notify/{id}", apiHandler.DeleteNotify)
 
 	server := http.Server{
-		Addr:         ":" + config.Port,
+		Addr:         ":" + cfg.ServerConfig.Addr,
 		Handler:      mux,
 		WriteTimeout: 10 * time.Second,
 		ReadTimeout:  5 * time.Second,
@@ -61,7 +70,7 @@ func run(config Config) error {
 		<-groupCtx.Done()
 		shCtx, cancel := context.WithTimeout(groupCtx, 60*time.Second)
 		defer cancel()
-		slog.Info("Shutting down server...")
+		zlog.Logger.Info().Msgf("Shutting down graceful shutdown at %s", shCtx)
 		if err := server.Shutdown(shCtx); err != nil {
 			return fmt.Errorf("shutdown fail: %v", err)
 		}
@@ -69,8 +78,8 @@ func run(config Config) error {
 	})
 
 	group.Go(func() error {
-		slog.Info("Server starting on port " + server.Addr)
-		err := server.ListenAndServe()
+		zlog.Logger.Info().Msgf("Starting server at %s", server.Addr)
+		err = server.ListenAndServe()
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			return fmt.Errorf("serrver faild: %v", err)
 		}

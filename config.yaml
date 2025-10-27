@@ -1,1 +1,4 @@
-port: 1337
+PORT: 1337
+RABBIT_URL: "amqp://guest:guest@rabbitmq:5672/"
+RETRY_CONNECT: 5
+PAUSE_RETRY: 3s

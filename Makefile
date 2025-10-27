@@ -27,7 +27,9 @@ clean:
 
 tools:
 	go get github.com/rabbitmq/amqp091-go
-	go get github.com/ilyakaznacheev/cleanenv
+	go get github.com/wb-go/wbf
+	go get github.com/rs/zerolog
+	go get github.com/spf13/viper
 	go get golang.org/x/sync/errgroup
 	go get github.com/go-playground/validator/v10
 	go mod tidy

@@ -7,12 +7,10 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-var (
-	rabbitmqUrl = os.Getenv("RABBITMQ_URL")
-)
+var rabbitUrl = os.Getenv("RABBITMQ_URL")
 
 func main() {
-	conn, err := amqp.Dial(rabbitmqUrl)
+	conn, err := amqp.Dial(rabbitUrl)
 	panicOnError(err)
 	defer func() {
 		err = conn.Close()
@@ -77,7 +75,7 @@ func main() {
 	go func() {
 		for d := range msgs {
 			log.Printf(" [x] %s", d.Body)
-			err := d.Ack(false) // Acknowledge the message
+			err = d.Ack(false) // Acknowledge the message
 			if err != nil {
 				log.Printf("Error acknowledging message: %s", err)
 			}

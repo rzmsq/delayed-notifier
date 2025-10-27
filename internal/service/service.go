@@ -3,19 +3,11 @@ package service
 import (
 	"delayed-notifier/internal/deliver"
 	"delayed-notifier/internal/models"
-	"os"
 
-	amqp "github.com/rabbitmq/amqp091-go"
+	"github.com/wb-go/wbf/rabbitmq"
 )
 
-var rabbitmqUrl = os.Getenv("RABBITMQ_URL")
-
-func CreateNotification(request *models.CreateNotificationRequest) error {
-	conn, err := amqp.Dial(rabbitmqUrl)
-	if err != nil {
-		return err
-	}
-
+func CreateNotification(request *models.CreateNotificationRequest, conn *rabbitmq.Connection) error {
 	ch, err := conn.Channel()
 	if err != nil {
 		return err
