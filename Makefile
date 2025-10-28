@@ -7,23 +7,11 @@ run:
 	docker-compose up
 
 quality:
-	make lint
-	make fmt
-	make vet
+	make lint ./...
+	make vet ./...
 
 lint:
-	golangci-lint run --enable-all
-
-test:
-	make tidy
-	make vendor
-	go test -v -timeout 10m ./test/ -coverprofile=coverage.out -json > report.json
-	@echo "test done"
-
-clean:
-	go clean
-	rm -rf out/
-	rm -f coverage*.out
+	golangci-lint run ./...
 
 tools:
 	go get github.com/rabbitmq/amqp091-go
@@ -33,4 +21,6 @@ tools:
 	go get golang.org/x/sync/errgroup
 	go get github.com/go-playground/validator/v10
 	go get github.com/google/uuid
+	go get github.com/cenkalti/backoff/v4
+	go get github.com/go-gomail/gomail
 	go mod tidy

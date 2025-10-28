@@ -2,18 +2,26 @@ package main
 
 import (
 	"context"
-	app_config "delayed-notifier/internal/app-config"
+	appConfig "delayed-notifier/internal/app-config"
 	"delayed-notifier/internal/models"
 	"encoding/json"
 	"flag"
 	"os"
+	"strconv"
+	"time"
 
+	"github.com/cenkalti/backoff/v4"
+	"github.com/go-gomail/gomail"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/wb-go/wbf/redis"
 	"github.com/wb-go/wbf/zlog"
 )
 
-const yamlPath = "config.yaml"
+const (
+	yamlPath       = "config.yaml"
+	maxElapseTimes = 2 * time.Minute
+	maxAttempts    = 5
+)
 
 func main() {
 	zlog.InitConsole()
@@ -22,12 +30,12 @@ func main() {
 	flag.StringVar(&configPath, "config", yamlPath, "Path to app-config file")
 	flag.Parse()
 
-	err := app_config.InitConfigs(configPath)
+	err := appConfig.InitConfigs(configPath)
 	if err != nil {
 		zlog.Logger.Error().Err(err).Msg("Error loading app-config file")
 		os.Exit(1)
 	}
-	cfg := app_config.Cfg
+	cfg := appConfig.Cfg
 
 	redisClient := redis.New(cfg.RedisConfig.Host+":"+cfg.RedisConfig.Port, cfg.RedisConfig.Passwords, cfg.RedisConfig.Db)
 
@@ -40,10 +48,11 @@ func main() {
 		}
 	}()
 
-	run(err, conn, redisClient)
+	run(conn, redisClient)
 }
 
-func run(err error, conn *amqp.Connection, redisClient *redis.Client) {
+func run(conn *amqp.Connection, redisClient *redis.Client) {
+	cfg := appConfig.Cfg
 	ch, err := conn.Channel()
 	panicOnError(err)
 	defer func() {
@@ -99,19 +108,49 @@ func run(err error, conn *amqp.Connection, redisClient *redis.Client) {
 
 	ctx := context.Background()
 	go func() {
-		for d := range msgs {
+		for delivery := range msgs {
 			var notification models.Notification
-			err = json.Unmarshal(d.Body, &notification)
+			err = json.Unmarshal(delivery.Body, &notification)
 			if err != nil {
 				zlog.Logger.Error().Err(err).Msg("unmarshalling message")
-				err = d.Reject(false)
+				err = delivery.Reject(false)
 				if err != nil {
 					zlog.Logger.Error().Err(err).Msg("rejecting message")
 				}
 				continue
 			}
 
-			err = d.Ack(false)
+			m := gomail.NewMessage()
+			m.SetHeader("From", cfg.SMTPConfig.From)
+			m.SetHeader("To", notification.Recipient)
+			m.SetHeader("Subject", "Notification")
+			m.SetBody("text/html", notification.Message)
+
+			var port int64
+			port, err = strconv.ParseInt(cfg.SMTPConfig.Port, 10, 64)
+			if err != nil {
+				zlog.Logger.Error().Err(err).Msg("parsing port number")
+				err = delivery.Reject(false)
+				if err != nil {
+					zlog.Logger.Error().Err(err).Msg("rejecting message")
+				}
+				continue
+			}
+			d := gomail.NewDialer(
+				cfg.SMTPConfig.Host,
+				int(port),
+				cfg.SMTPConfig.From,
+				cfg.SMTPConfig.Passwords,
+			)
+
+			if err = d.DialAndSend(m); err != nil {
+				zlog.Logger.Error().Err(err).Msg("failed to send email")
+				continue
+			}
+
+			zlog.Logger.Info().Str("recipient", notification.Recipient).Msg("email sent successfully")
+
+			err = delivery.Ack(false)
 			if err != nil {
 				zlog.Logger.Error().Err(err).Msg("ack message")
 				continue
@@ -124,9 +163,17 @@ func run(err error, conn *amqp.Connection, redisClient *redis.Client) {
 				continue
 			}
 
-			err = redisClient.Set(ctx, notification.ID, notificationJSON)
+			operation := func() error {
+				return redisClient.Set(ctx, notification.ID, notificationJSON)
+			}
+
+			expBackoff := backoff.NewExponentialBackOff()
+			expBackoff.MaxElapsedTime = maxElapseTimes
+
+			err = backoff.Retry(operation, backoff.WithMaxRetries(expBackoff, maxAttempts))
+
 			if err != nil {
-				zlog.Logger.Error().Err(err).Msg("redis set status notification")
+				zlog.Logger.Error().Err(err).Msg("redis set status notification failed after multiple retries")
 			} else {
 				zlog.Logger.Info().Interface("notification", notification).Msg("redis set status notification")
 			}

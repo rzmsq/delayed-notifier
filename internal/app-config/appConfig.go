@@ -12,6 +12,7 @@ type AppConfig struct {
 	ServerConfig *serverConfig
 	RabbitConfig *rabbitConfig
 	RedisConfig  *redisConfig
+	SMTPConfig   *smtpConfig
 }
 
 type serverConfig struct {
@@ -29,6 +30,13 @@ type redisConfig struct {
 	Port      string
 	Passwords string
 	Db        int
+}
+
+type smtpConfig struct {
+	Host      string
+	Port      string
+	From      string
+	Passwords string
 }
 
 func newAppConfig(configPath string) (*AppConfig, error) {
@@ -52,6 +60,12 @@ func newAppConfig(configPath string) (*AppConfig, error) {
 			Port:      cfg.GetString("REDIS_PORT"),
 			Passwords: cfg.GetString("REDIS_PASSWORD"),
 			Db:        cfg.GetInt("REDIS_DB"),
+		},
+		SMTPConfig: &smtpConfig{
+			Host:      cfg.GetString("SMTP_HOST"),
+			Port:      cfg.GetString("SMTP_PORT"),
+			From:      cfg.GetString("SMTP_FROM"),
+			Passwords: cfg.GetString("SMTP_PASSWORD"),
 		},
 	}, nil
 }
