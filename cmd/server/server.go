@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"delayed-notifier/internal/appConfig"
+	"delayed-notifier/internal/app-config"
 	"delayed-notifier/internal/handler"
 	"delayed-notifier/internal/rabbit"
 	"errors"
@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/wb-go/wbf/rabbitmq"
+	"github.com/wb-go/wbf/redis"
 	"github.com/wb-go/wbf/zlog"
 	"golang.org/x/sync/errgroup"
 )
@@ -25,12 +26,12 @@ func main() {
 	zlog.InitConsole()
 
 	var configPath string
-	flag.StringVar(&configPath, "config", yamlPath, "Path to appConfig file")
+	flag.StringVar(&configPath, "config", yamlPath, "Path to app-config file")
 	flag.Parse()
 
-	err := appConfig.InitConfigs(configPath)
+	err := app_config.InitConfigs(configPath)
 	if err != nil {
-		zlog.Logger.Error().Err(err).Msg("Error loading appConfig file")
+		zlog.Logger.Error().Err(err).Msg("Error loading app-config file")
 		os.Exit(1)
 	}
 
@@ -41,7 +42,7 @@ func main() {
 }
 
 func run() error {
-	cfg := appConfig.Cfg
+	cfg := app_config.Cfg
 
 	conn, err := rabbitmq.Connect(cfg.RabbitConfig.RabbitmqUrl, cfg.RabbitConfig.RetryConnect, cfg.RabbitConfig.PauseRetry)
 	if err != nil {
@@ -53,11 +54,13 @@ func run() error {
 		return err
 	}
 
+	redisClient := redis.New(cfg.RedisConfig.Host+":"+cfg.RedisConfig.Port, cfg.RedisConfig.Passwords, cfg.RedisConfig.Db)
+
 	mux := http.NewServeMux()
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	apiHandler := handler.APIHandler{Pool: channelPool}
+	apiHandler := handler.APIHandler{Pool: channelPool, RedisClient: redisClient}
 	zlog.Logger.Info().Msgf("Starting API server %v", apiHandler.Pool)
 
 	mux.HandleFunc("POST /notify", apiHandler.PostNotification)
@@ -65,7 +68,7 @@ func run() error {
 	mux.HandleFunc("DELETE /notify/{id}", apiHandler.DeleteNotify)
 
 	server := http.Server{
-		Addr:         ":" + cfg.ServerConfig.Addr,
+		Addr:         ":" + cfg.ServerConfig.Port,
 		Handler:      mux,
 		WriteTimeout: 10 * time.Second,
 		ReadTimeout:  5 * time.Second,

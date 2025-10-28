@@ -32,4 +32,5 @@ tools:
 	go get github.com/spf13/viper
 	go get golang.org/x/sync/errgroup
 	go get github.com/go-playground/validator/v10
+	go get github.com/google/uuid
 	go mod tidy

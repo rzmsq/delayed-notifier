@@ -8,7 +8,7 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-func CreateNotification(ch *amqp.Channel, notify *models.CreateNotificationRequest, key string) error {
+func CreateNotification(ch *amqp.Channel, notify *models.Notification, key string) error {
 	args := amqp.Table{
 		"x-delayed-type": "direct",
 	}

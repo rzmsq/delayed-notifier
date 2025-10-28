@@ -9,6 +9,7 @@ services:
       - "1337:1337"
     depends_on:
       - rabbitmq
+      - redis
     restart: always
 
   client_tg:
@@ -43,4 +44,12 @@ services:
     ports:
       - "5672:5672"
       - "15672:15672"
+    restart: always
+
+  redis:
+    image: redis:alpine
+    container_name: redis
+    command: redis-server --requirepass admin
+    ports:
+      - "6379:6379"
     restart: always

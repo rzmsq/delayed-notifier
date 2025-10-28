@@ -1,4 +1,4 @@
-package appConfig
+package app_config
 
 import (
 	"time"
@@ -11,16 +11,24 @@ var Cfg *AppConfig
 type AppConfig struct {
 	ServerConfig *serverConfig
 	RabbitConfig *rabbitConfig
+	RedisConfig  *redisConfig
 }
 
 type serverConfig struct {
-	Addr string
+	Port string
 }
 
 type rabbitConfig struct {
 	RabbitmqUrl  string
 	RetryConnect int
 	PauseRetry   time.Duration
+}
+
+type redisConfig struct {
+	Host      string
+	Port      string
+	Passwords string
+	Db        int
 }
 
 func newAppConfig(configPath string) (*AppConfig, error) {
@@ -32,12 +40,18 @@ func newAppConfig(configPath string) (*AppConfig, error) {
 
 	return &AppConfig{
 		ServerConfig: &serverConfig{
-			Addr: cfg.GetString("PORT"),
+			Port: cfg.GetString("PORT"),
 		},
 		RabbitConfig: &rabbitConfig{
 			RabbitmqUrl:  cfg.GetString("RABBIT_URL"),
 			RetryConnect: cfg.GetInt("RETRY_CONNECT"),
 			PauseRetry:   cfg.GetDuration("PAUSE_RETRY"),
+		},
+		RedisConfig: &redisConfig{
+			Host:      cfg.GetString("REDIS_HOST"),
+			Port:      cfg.GetString("REDIS_PORT"),
+			Passwords: cfg.GetString("REDIS_PASSWORD"),
+			Db:        cfg.GetInt("REDIS_DB"),
 		},
 	}, nil
 }
