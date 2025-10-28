@@ -2,17 +2,17 @@ package handler
 
 import (
 	"delayed-notifier/internal/models"
+	"delayed-notifier/internal/rabbit"
 	"delayed-notifier/internal/service"
 	"encoding/json"
 	"net/http"
 
 	"github.com/go-playground/validator/v10"
-	"github.com/wb-go/wbf/rabbitmq"
 	"github.com/wb-go/wbf/zlog"
 )
 
 type APIHandler struct {
-	Connection *rabbitmq.Connection
+	Pool *rabbit.ChannelPool
 }
 
 func (h *APIHandler) PostNotification(w http.ResponseWriter, r *http.Request) {
@@ -22,6 +22,9 @@ func (h *APIHandler) PostNotification(w http.ResponseWriter, r *http.Request) {
 			zlog.Logger.Error().Err(err).Msg("body request close error")
 		}
 	}()
+
+	channel := h.Pool.Get()
+	defer h.Pool.Put(channel)
 
 	var request models.CreateNotificationRequest
 
@@ -39,7 +42,7 @@ func (h *APIHandler) PostNotification(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = service.CreateNotification(&request, h.Connection)
+	err = service.CreateNotification(&request, channel)
 	if err != nil {
 		zlog.Logger.Error().Err(err).Msg("create notification error")
 		w.WriteHeader(http.StatusInternalServerError)

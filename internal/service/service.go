@@ -7,19 +7,8 @@ import (
 	"github.com/wb-go/wbf/rabbitmq"
 )
 
-func CreateNotification(request *models.CreateNotificationRequest, conn *rabbitmq.Connection) error {
-	ch, err := conn.Channel()
-	if err != nil {
-		return err
-	}
-	defer func() {
-		err = ch.Close()
-		if err != nil {
-			panic(err)
-		}
-	}()
-
-	err = deliver.CreateNotification(ch, request, request.Channel)
+func CreateNotification(request *models.CreateNotificationRequest, conn *rabbitmq.Channel) error {
+	err := deliver.CreateNotification(conn, request, request.Channel)
 	if err != nil {
 		return err
 	}

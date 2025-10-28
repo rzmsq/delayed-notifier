@@ -4,6 +4,7 @@ import (
 	"context"
 	"delayed-notifier/internal/appConfig"
 	"delayed-notifier/internal/handler"
+	"delayed-notifier/internal/rabbit"
 	"errors"
 	"flag"
 	"fmt"
@@ -47,12 +48,17 @@ func run() error {
 		return err
 	}
 
+	channelPool, err := rabbit.NewChannelPool(conn, 50)
+	if err != nil {
+		return err
+	}
+
 	mux := http.NewServeMux()
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	apiHandler := handler.APIHandler{Connection: conn}
-	zlog.Logger.Info().Msgf("Starting API server %v", apiHandler.Connection)
+	apiHandler := handler.APIHandler{Pool: channelPool}
+	zlog.Logger.Info().Msgf("Starting API server %v", apiHandler.Pool)
 
 	mux.HandleFunc("POST /notify", apiHandler.PostNotification)
 	mux.HandleFunc("GET /notify/{id}", apiHandler.GetNotify)
