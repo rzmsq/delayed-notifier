@@ -24,7 +24,7 @@ func (h *APIHandler) PostNotification(w http.ResponseWriter, r *http.Request) {
 	defer func() {
 		err := r.Body.Close()
 		if err != nil {
-			zlog.Logger.Error().Err(err).Msg("body request close error")
+			zlog.Logger.Error().Err(err).Msg("body request close")
 		}
 	}()
 
@@ -47,9 +47,11 @@ func (h *APIHandler) PostNotification(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	request.ID = uuid.New().String()
+	request.Status = models.StatusPending
 	notificationJSON, err := json.Marshal(request)
 	if err != nil {
-		zlog.Logger.Error().Err(err).Msg("json marshal error")
+		zlog.Logger.Error().Err(err).Msg("json marshal")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -60,8 +62,6 @@ func (h *APIHandler) PostNotification(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	request.ID = uuid.New().String()
-	request.Status = models.StatusPending
 	err = h.RedisClient.Set(r.Context(), request.ID, notificationJSON)
 	if err != nil {
 		zlog.Logger.Error().Err(err).Msg("store save")
@@ -88,7 +88,11 @@ func (h *APIHandler) GetNotify(w http.ResponseWriter, r *http.Request) {
 
 	notification, err := h.RedisClient.Get(r.Context(), id)
 	if err != nil {
-		zlog.Logger.Error().Err(err).Msg("store find error")
+		zlog.Logger.Error().Err(err).Msg("store find")
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	if notification == "" {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
@@ -96,7 +100,7 @@ func (h *APIHandler) GetNotify(w http.ResponseWriter, r *http.Request) {
 	var notificationModel models.Notification
 	err = json.NewDecoder(bytes.NewReader([]byte(notification))).Decode(&notificationModel)
 	if err != nil {
-		zlog.Logger.Error().Err(err).Msg("json decode error")
+		zlog.Logger.Error().Err(err).Msg("json decode")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -105,8 +109,19 @@ func (h *APIHandler) GetNotify(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
 	_, err = w.Write([]byte(notificationModel.Status))
 	if err != nil {
-		zlog.Logger.Error().Err(err).Msg("write response error")
+		zlog.Logger.Error().Err(err).Msg("write response")
 	}
 }
 
-func (h *APIHandler) DeleteNotify(w http.ResponseWriter, r *http.Request) {}
+func (h *APIHandler) DeleteNotify(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+
+	err := h.RedisClient.Del(r.Context(), id)
+	if err != nil {
+		zlog.Logger.Error().Err(err).Msg("delete notify")
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
