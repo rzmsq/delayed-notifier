@@ -1,0 +1,46 @@
+services:
+  server:
+    image: server
+    build: .
+    command: /app/server
+    environment:
+      RABBITMQ_URL: "amqp://guest:guest@rabbitmq:5672/"
+    ports:
+      - "1337:1337"
+    depends_on:
+      - rabbitmq
+      - redis
+    restart: always
+
+  client_email:
+    image: client_email
+    build: .
+    command: /app/email_consumer
+    environment:
+      RABBITMQ_URL: "amqp://guest:guest@rabbitmq:5672/"
+    ports:
+      - "8082:8082"
+    depends_on:
+      - rabbitmq
+    restart: always
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+
+  rabbitmq:
+    build:
+      context: .
+      dockerfile: Dockerfile.rabbitmq
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    restart: always
+
+  redis:
+    image: redis:alpine
+    container_name: redis
+    command: redis-server --requirepass admin
+    ports:
+      - "6379:6379"
+    restart: always
